@@ -16,6 +16,8 @@ const WHITELISTED_IPS = process.env.WHITELISTED_IPS
     : [];
 
 if (!SECRET || !VERIFY_TOKEN) {
+    console.log(process.env.APP_SECRET);  // Menampilkan nilai variabel lingkungan
+    console.log(process.env.VERIFY_TOKEN);
     console.error("SECRET :",SECRET);
     console.error("VERIFY_TOKEN :",VERIFY_TOKEN);
     console.error('ERROR: APP_SECRET and VERIFY_TOKEN must be set in the environment.');
