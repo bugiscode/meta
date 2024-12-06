@@ -1,83 +1,93 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const crypto = require("crypto");
-const dotenv = require("dotenv");
-
-// Tentukan lingkungan (dev/prod) dan muat file .env yang sesuai
-const ENVIRONMENT = process.env.NODE_ENV || "dev";
-dotenv.config({ path: `.env.${ENVIRONMENT}` });
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const crypto = require('crypto');
 
 const app = express();
-const PORT = process.env.APP_PORT || 3000;
-const APP_SECRET = process.env.APP_SECRET; 
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const WHITELISTED_IPS = process.env.WHITELISTED_IPS.split(",");
 
-// Middleware untuk membaca JSON
+// Konfigurasi dari file .env
+const PORT = process.env.APP_PORT || 3000;
+const SECRET = process.env.APP_SECRET;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+const WHITELISTED_IPS = process.env.WHITELISTED_IPS
+    ? process.env.WHITELISTED_IPS.split(',')
+    : [];
+
+if (!SECRET || !VERIFY_TOKEN) {
+    console.error('ERROR: APP_SECRET and VERIFY_TOKEN must be set in the environment.');
+    process.exit(1);
+}
+
+// Middleware untuk log level (opsional)
+if (LOG_LEVEL === 'debug') {
+    app.use((req, res, next) => {
+        console.log(`${req.method} ${req.url}`);
+        next();
+    });
+}
+
+// Middleware untuk body parser
 app.use(bodyParser.json());
 
-// Endpoint verifikasi webhook
-app.get("/webhook", (req, res) => {
-    const mode = req.query["hub.mode"];
-    const token = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
-
-    if (mode && token) {
-        if (mode === "subscribe" && token === VERIFY_TOKEN) {
-            console.log("Webhook verified!");
-            res.status(200).send(challenge);
-        } else {
-            res.status(403).send("Forbidden");
-        }
+// Middleware untuk memeriksa IP whitelist
+app.use((req, res, next) => {
+    const clientIp = req.ip.replace('::ffff:', ''); // Hapus prefiks IPv6 jika ada
+    if (!WHITELISTED_IPS.includes(clientIp)) {
+        console.error(`Unauthorized access attempt from IP: ${clientIp}`);
+        return res.status(403).send('Access forbidden: Your IP is not allowed.');
     }
+    next();
 });
 
-// Middleware untuk memvalidasi tanda tangan
-const verifySignature = (req, res, next) => {
-    const signature = req.headers["x-hub-signature-256"];
+// Verifikasi Token Webhook
+app.get('/webhook', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
 
-    if (!signature) {
-        return res.status(401).send("Signature missing");
-    }
-
-    const payload = JSON.stringify(req.body);
-    const expectedSignature = `sha256=${crypto
-        .createHmac("sha256", APP_SECRET)
-        .update(payload)
-        .digest("hex")}`;
-
-    if (signature !== expectedSignature) {
-        console.error("Invalid signature");
-        return res.status(401).send("Invalid signature");
-    }
-
-    next();
-};
-
-// Middleware untuk memvalidasi IP
-const verifyIP = (req, res, next) => {
-    const clientIP = req.ip;
-
-    if (!WHITELISTED_IPS.includes(clientIP)) {
-        console.error(`Unauthorized IP: ${clientIP}`);
-        return res.status(403).send("Unauthorized IP");
-    }
-
-    next();
-};
-
-// Endpoint untuk menerima data
-app.post("/webhook", verifyIP, verifySignature, (req, res) => {
-    const body = req.body;
-
-    if (body.object) {
-        console.log("Received webhook event:", JSON.stringify(body, null, 2));
-        res.status(200).send("EVENT_RECEIVED");
+    if (mode && token === VERIFY_TOKEN) {
+        console.log('Webhook verified successfully.');
+        res.status(200).send(challenge);
     } else {
-        res.sendStatus(404);
+        console.error('Webhook verification failed.');
+        res.status(403).send('Forbidden');
     }
 });
 
+// Endpoint untuk menerima webhook
+app.post('/webhook', (req, res) => {
+    try {
+        const signature = req.headers['x-hub-signature-256'];
+
+        if (!signature) {
+            console.error('Signature missing in request.');
+            return res.status(403).send('Forbidden');
+        }
+
+        const hash = `sha256=${crypto
+            .createHmac('sha256', SECRET)
+            .update(JSON.stringify(req.body))
+            .digest('hex')}`;
+
+        if (signature !== hash) {
+            console.error('Signature mismatch.');
+            return res.status(403).send('Invalid signature.');
+        }
+
+        // Proses payload webhook
+        const body = req.body;
+        console.log('Webhook payload:', JSON.stringify(body, null, 2));
+
+        res.status(200).send('Event received');
+    } catch (err) {
+        console.error('Error processing webhook:', err);
+        res.status(500).send('Internal server error');
+    }
+});
+
+// Jalankan server
 app.listen(PORT, () => {
-    console.log(`Webhook server is running on port ${PORT} in ${ENVIRONMENT} mode`);
+    console.log(`Webhook server running on port ${PORT}`);
+    console.log(`Whitelisted IPs: ${WHITELISTED_IPS.join(', ')}`);
 });
