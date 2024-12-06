@@ -1,4 +1,5 @@
-require('dotenv').config();
+const environment = process.env.NODE_ENV || 'development';
+require('dotenv').config({ path: `.env.${environment}` });
 const express = require('express');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
@@ -15,6 +16,8 @@ const WHITELISTED_IPS = process.env.WHITELISTED_IPS
     : [];
 
 if (!SECRET || !VERIFY_TOKEN) {
+    console.error("SECRET :",SECRET);
+    console.error("VERIFY_TOKEN :",VERIFY_TOKEN);
     console.error('ERROR: APP_SECRET and VERIFY_TOKEN must be set in the environment.');
     process.exit(1);
 }
