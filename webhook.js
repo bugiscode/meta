@@ -2,6 +2,8 @@ const environment = process.env.NODE_ENV || 'development';
 require('dotenv').config({ path: `.env.${environment}` });
 const express = require('express');
 const bodyParser = require('body-parser');
+const https = require('https');
+const fs = require('fs');
 
 const app = express();
 
@@ -56,7 +58,13 @@ app.post('/webhook', (req, res) => {
     }
 });
 
-// Jalankan server
-app.listen(PORT, () => {
-    console.log(`Webhook server running on port ${PORT}`);
+// Opsi sertifikat SSL
+const options = {
+    key: fs.readFileSync('/etc/letsencrypt/live/omchannel.com/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/omchannel.com/fullchain.pem')
+};
+
+// Jalankan server HTTPS
+https.createServer(options, app).listen(PORT, () => {
+    console.log(`Webhook server running on https://localhost:${PORT}`);
 });
