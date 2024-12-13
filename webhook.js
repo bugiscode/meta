@@ -60,8 +60,8 @@ app.post('/webhook', (req, res) => {
 
 // Opsi sertifikat SSL
 const options = {
-    key: fs.readFileSync('/etc/letsencrypt/live/omchannel.com/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/omchannel.com/fullchain.pem')
+    key: fs.readFileSync('/etc/letsencrypt/live/be.omchannel.com/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/be.omchannel.com/fullchain.pem')
 };
 
 // Jalankan server HTTPS
