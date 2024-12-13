@@ -8,7 +8,7 @@ const fs = require('fs');
 const app = express();
 
 // Konfigurasi dari file .env
-const PORT = process.env.APP_PORT || 3000;
+const PORT = process.env.APP_PORT || 3100;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
